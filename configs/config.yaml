@@ -1,0 +1,52 @@
+# ── Dataset ──────────────────────────────────────────────────────────────────
+data:
+  root: ./dataset
+  # Max images drawn from each (real_fake × transform) cell.
+  # 6 cells total: real/ai × original/transfer/redigital
+  # Set to null to use the entire dataset.
+  # Colab-friendly default: 600 → ~3 600 training images
+  subset_per_cell: 600
+  image_size: 224
+  train_frac: 0.70
+  val_frac:   0.15
+  # test_frac is implied: 1 - train_frac - val_frac
+  seed: 42
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+model:
+  backbone: efficientnet_b0
+  dropout: 0.3
+  freeze_backbone: false   # set true to fine-tune heads only (faster on CPU)
+
+# ── Training ──────────────────────────────────────────────────────────────────
+training:
+  epochs: 20
+  batch_size: 32           # reduce to 16 on CPU / low-VRAM GPU
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  patience: 5              # early-stopping patience
+  num_workers: 2           # set 0 on Windows / if DataLoader errors
+
+# ── Phases ────────────────────────────────────────────────────────────────────
+phases:
+  # Phase 1 – unimodal baselines
+  # alpha=1.0 → real/fake only;  alpha=0.0 → transform only
+  baselines:
+    - name: baseline_rf
+      alpha: 1.0
+    - name: baseline_tr
+      alpha: 0.0
+
+  # Phase 2 – joint multi-task (best single run)
+  joint:
+    name: joint
+    alpha: 0.5
+
+  # Phase 3 – ablation sweep over alpha
+  ablation:
+    alphas: [0.0, 0.2, 0.5, 0.8, 1.0]
+
+# ── Output ────────────────────────────────────────────────────────────────────
+output:
+  runs_dir: ./runs          # checkpoints saved here, one subdir per run name
+  plots_dir: ./runs/plots   # all figures saved here
