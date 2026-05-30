@@ -33,24 +33,23 @@ def parse(p):
     cls = os.path.basename(os.path.dirname(p))
     transform = os.path.basename(os.path.dirname(os.path.dirname(p)))
 
-    # retirer les tokens 'real' et de transfo, où qu'ils soient
+    # Deleting class and transform tokens to avoid duplicates
     tokens = [t for t in fn.split("_") if t not in TRANSFORMS and t != "real"]
     fn = "_".join(tokens)
 
     m = re.match(r"^(.*?)_?(\d+)$", fn)
     if m:
-        stem, img_id = m.group(1), str(int(m.group(2)))   # int() supprime les zéros de tête
+        stem, img_id = m.group(1), str(int(m.group(2)))  
     else:
         stem, img_id = fn, ""
 
     if cls == "real":
         context = "None"
-        uid = f"real_{img_id}"          # ex: real_1
+        uid = f"real_{img_id}"         
     else:
         context = stem
-        uid = f"ai_{context}_{img_id}"  # ex: ai_Culture_&_Religion_1
+        uid = f"ai_{context}_{img_id}" 
     return cls, transform, context, uid
-
  
 long[["label","transform","context","unique_id"]] = long["filepath"].apply(lambda p: pd.Series(parse(p)))
 
@@ -62,10 +61,7 @@ wide = long.pivot_table(index=["unique_id","label","context"],
 wide.columns.name = None
 before = len(wide)
 
-print(long[long["label"]=="real"][["transform","unique_id"]].head(10))
-
 wide = wide.dropna(subset=TRANSFORMS).reset_index(drop=True)
-
 
 
 ### III. Perform a BALANCED split across all labels AND 
@@ -78,6 +74,9 @@ val, test   = train_test_split(temp, test_size=0.50, random_state=SEED, stratify
 for name, part in [("train",train),("val",val),("test",test)]: # Adding the split in the datasep
     wide.loc[part.index, "split"] = name
  
+for t in TRANSFORMS:
+    wide[t] = "dataset/" + wide[t] # Adding back the absolute path from root
+
 wide.drop(columns="strat").to_csv("rrdataset_new_split.csv", index=False) # Exporting dataset
  
 ### SANITY CHECK
