@@ -7,52 +7,57 @@ from torchvision import models
 class UnimodalNet(nn.Module):
     def __init__(self, task, unfreeze_last_block=True):
         """
-        task : 'realfake' (2 classes) ou 'transform' (3 classes)
+        Unimodal Net with only one classification head trained on one objective only
+        specify the task: 'realfake' (binary) or 'transform' (three classes)
         """
+
         super().__init__()
-        assert task in ("realfake", "transform")
+        assert task in ("realfake", "transform") # check if task is valid
+
         self.task = task
         n_classes = 2 if task == "realfake" else 3
 
         backbone = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-        feat_dim = backbone.fc.in_features      # 512
-        backbone.fc = nn.Identity()
+        feat_dim = backbone.fc.in_features # 512
+        backbone.fc = nn.Identity() # Remove the original classification head
         self.backbone = backbone
 
+        # We FREEZE the original backbone, except the last part of the network!
         for p in self.backbone.parameters():
             p.requires_grad = False
         if unfreeze_last_block:
             for p in self.backbone.layer4.parameters():
                 p.requires_grad = True
 
-        self.head = nn.Linear(feat_dim, n_classes)
+        self.head = nn.Linear(feat_dim, n_classes) # Add the untrained classification head
 
     def forward(self, x):
-        feats = self.backbone(x)        # (batch, 512)
-        return self.head(feats)         # (batch, n_classes)
+        feats = self.backbone(x) 
+        return self.head(feats) # (batch, n_classes)
 
 class JointDetectNet(nn.Module):
+    """Network with two independant classification heads added on the backbone.
+        Both impact is weighted using the alpha/beta parameters.
+        Both head share the same weights from the backbone"""
+    
     def __init__(self, n_transforms=3, unfreeze_last_block=True):
         super().__init__()
 
         backbone = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
         feat_dim = backbone.fc.in_features         
-        backbone.fc = nn.Identity()                  # on retire la tête de classif ImageNet
+        backbone.fc = nn.Identity() 
         self.backbone = backbone
 
-        # 1. tout geler
-        for p in self.backbone.parameters():
+        for p in self.backbone.parameters(): # Same partial freezing
             p.requires_grad = False
-
-        # 2. dégeler seulement le dernier bloc (layer4)
         if unfreeze_last_block:
             for p in self.backbone.layer4.parameters():
                 p.requires_grad = True
 
-        # deux têtes indépendantes sur les mêmes features
-        self.head_realfake = nn.Linear(feat_dim, 2)            # real / ai
+        # Two independant heads
+        self.head_realfake = nn.Linear(feat_dim, 2) # real / ai
         self.head_transform = nn.Linear(feat_dim, n_transforms) # original / transfer / redigital
 
     def forward(self, x):
-        feats = self.backbone(x)                # (batch, 512)
-        return self.head_realfake(feats), self.head_transform(feats)
+        feats = self.backbone(x) 
+        return self.head_realfake(feats), self.head_transform(feats) 
