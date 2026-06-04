@@ -21,57 +21,82 @@ def show_sample(img_tensor, label, transform):
 
 
 def plot_history(history, title="Training history", save_path=None):
-    """Function to plot the training history. Produces 3 or 4 plots:
+    """Function to plot the training history. Produces 3 to 4 plots:
         - Training loss
         - Accuracy to the objective (or both if joint detection) across the val set
-        - real/fake accuray per transform type"""
-
+        - real/fake accuracy per transform type (if realfake task present)
+        - transform accuracy per transform type (if transform task present)"""
+    
     epochs = [h["epoch"] for h in history]
     train_loss = [h["train_loss"] for h in history]
     metrics = [k for k in history[0] if k.startswith("acc_")]
 
-    has_by_transform = (
+    has_rf_by_transform = (
         "rf_by_transform" in history[0]
-        and history[0]["rf_by_transform"]           
-        and "acc_realfake" in history[0]            
+        and history[0]["rf_by_transform"]
+        and "acc_realfake" in history[0]
     )
-    transforms = list(history[0]["rf_by_transform"].keys()) if has_by_transform else []
+    has_tf_by_transform = (
+        "tf_by_transform" in history[0]
+        and history[0]["tf_by_transform"]
+        and "acc_transform" in history[0]
+    )
 
-    n_plots = 1 + len(metrics) + (1 if has_by_transform else 0)
+    transforms_rf = list(history[0]["rf_by_transform"].keys()) if has_rf_by_transform else []
+    transforms_tf = list(history[0]["tf_by_transform"].keys()) if has_tf_by_transform else []
+
+    n_plots = 1 + len(metrics) + (1 if has_rf_by_transform else 0) + (1 if has_tf_by_transform else 0)
     fig, axes = plt.subplots(1, n_plots, figsize=(5 * n_plots, 4))
     axes = axes if n_plots > 1 else [axes]
 
+    colors_tf = {"original": "steelblue", "transfer": "darkorange", "redigital": "mediumpurple"}
+    ax_idx = 0
+
     # loss
-    axes[0].plot(epochs, train_loss, marker="o")
-    axes[0].set_title("Train loss")
-    axes[0].set_xlabel("Epoch")
-    axes[0].set_ylabel("Loss")
-    axes[0].grid(True)
+    axes[ax_idx].plot(epochs, train_loss, marker="o")
+    axes[ax_idx].set_title("Train loss")
+    axes[ax_idx].set_xlabel("Epoch")
+    axes[ax_idx].set_ylabel("Loss")
+    axes[ax_idx].grid(True)
+    ax_idx += 1
 
-    # accuracies
+    # Global accuracies
     colors_acc = {"acc_realfake": "green", "acc_transform": "tomato"}
-    for ax, metric in zip(axes[1:], metrics):
+    for metric in metrics:
         values = [h[metric] for h in history]
-        ax.plot(epochs, values, marker="o", color=colors_acc.get(metric, "gray"))
-        ax.set_title(metric)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Accuracy")
-        ax.set_ylim(0, 1)
-        ax.grid(True)
+        axes[ax_idx].plot(epochs, values, marker="o", color=colors_acc.get(metric, "gray"))
+        axes[ax_idx].set_title(metric)
+        axes[ax_idx].set_xlabel("Epoch")
+        axes[ax_idx].set_ylabel("Accuracy")
+        axes[ax_idx].set_ylim(0, 1)
+        axes[ax_idx].grid(True)
+        ax_idx += 1
 
-    # real/fake by tranformation
-    if has_by_transform:
-        ax = axes[-1]
-        colors_tf = {"original": "steelblue", "transfer": "darkorange", "redigital": "mediumpurple"}
-        for t in transforms:
+    # RF accuracy per transformation
+    if has_rf_by_transform:
+        for t in transforms_rf:
             values = [h["rf_by_transform"].get(t) for h in history]
-            ax.plot(epochs, values, marker="o", color=colors_tf.get(t, "gray"), label=t)
-        ax.set_title("Real/fake acc by transform")
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Accuracy")
-        ax.legend()
-        ax.grid(True)
-    
+            axes[ax_idx].plot(epochs, values, marker="o", color=colors_tf.get(t, "gray"), label=t)
+        axes[ax_idx].set_title("Real/fake acc by transform")
+        axes[ax_idx].set_xlabel("Epoch")
+        axes[ax_idx].set_ylabel("Accuracy")
+        axes[ax_idx].set_ylim(0, 1)
+        axes[ax_idx].legend()
+        axes[ax_idx].grid(True)
+        ax_idx += 1
+
+    # Transform accuracy per transformation
+    if has_tf_by_transform:
+        for t in transforms_tf:
+            values = [h["tf_by_transform"].get(t) for h in history]
+            axes[ax_idx].plot(epochs, values, marker="o", color=colors_tf.get(t, "gray"), label=t)
+        axes[ax_idx].set_title("Transform acc by transform")
+        axes[ax_idx].set_xlabel("Epoch")
+        axes[ax_idx].set_ylabel("Accuracy")
+        axes[ax_idx].set_ylim(0, 1)
+        axes[ax_idx].legend()
+        axes[ax_idx].grid(True)
+
     if save_path:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
