@@ -1,11 +1,8 @@
 """Data preprocesssing and DataLoader objects"""
 
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
+from torch.utils.data import Dataset
 from PIL import Image
-import pandas as pd
 import torch
-import os
 
 def collate_fn(batch):
     """Collate that keeps fields (transform, context) as lists and not strings

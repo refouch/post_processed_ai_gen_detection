@@ -1,8 +1,9 @@
-"""Useful functions"""
+"""Useful functions, mainly visual stuff."""
 
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+
 
 def show_sample(img_tensor, label, transform):
     """Code borrowed from tutorial n°2. Just added multi-label support"""
@@ -18,6 +19,51 @@ def show_sample(img_tensor, label, transform):
     plt.title(f"Class: {label}, Transform:{transform}, Shape: ({img_tensor.shape[0]},{img_tensor.shape[1]},{img_tensor.shape[2]})")
     plt.axis('off')
     plt.show()
+
+
+def print_all_results(all_results, omit_breadown = False):
+    """Pretty print in terminal for the result dictionnaries"""
+    COL = 20
+    W = 10
+
+    # Summary table
+    header = f"{'Model':<{COL}} {'Real/Fake':>{W}} {'Transform':>{W}}"
+    sep = "─" * len(header)
+    print(sep)
+    print(header)
+    print(sep)
+    for name, res in all_results.items():
+        rf = f"{res['acc_realfake']:.2%}" if 'acc_realfake' in res else "—"
+        tf = f"{res['acc_transform']:.2%}" if 'acc_transform' in res else "—"
+        print(f"{name:<{COL}} {rf:>{W}} {tf:>{W}}")
+    print(sep)
+
+    # Per-transform breakdowns 
+    for name, res in all_results.items():
+        sections = [
+            ("rf_by_transform", "Real/Fake by transform"),
+            ("tf_by_transform", "Transform id by transform"),
+            ("rf_by_context",   "Real/Fake by context"),
+        ]
+
+        has_breakdown = any(res.get(k) for k, _ in sections)
+
+        if not has_breakdown or omit_breadown: # If no breakdown OR omit then skip.
+            continue
+
+        print(f"\n  [{name}]")
+        for key, label in sections:
+            data = res.get(key)
+
+            if not data:
+                continue
+
+            print(f"    {label}:")
+            for k, v in sorted(data.items(), key=lambda x: str(x[0])):
+                
+                if type(k) == float: # Filter out residual nan
+                    continue
+                print(f"      {k:<22} {v:.2%}")
 
 
 def plot_history(history, title="Training history", save_path=None):
